@@ -53,6 +53,20 @@ public class Program
             builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
             var app = builder.Build();
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
+                var pending = db.Database.GetPendingMigrations();
+                if (pending.Any())
+                {
+                    Log.Information("Applying {Count} pending migration(s): {Migrations}",
+                        pending.Count(), string.Join(", ", pending));
+                    db.Database.Migrate();
+                    Log.Information("Migrations applied successfully.");
+                }
+            }
+
             app.UseMiddleware<ValidationExceptionMiddleware>();
 
             if (app.Environment.IsDevelopment())

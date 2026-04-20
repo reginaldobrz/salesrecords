@@ -1,0 +1,67 @@
+using Ambev.DeveloperEvaluation.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Ambev.DeveloperEvaluation.ORM.Mapping;
+
+public class SaleConfiguration : IEntityTypeConfiguration<Sale>
+{
+    public void Configure(EntityTypeBuilder<Sale> builder)
+    {
+        builder.ToTable("Sales");
+
+        builder.HasKey(s => s.Id);
+        builder.Property(s => s.Id)
+            .HasColumnType("uuid")
+            .HasDefaultValueSql("gen_random_uuid()");
+
+        builder.Property(s => s.SaleNumber)
+            .ValueGeneratedOnAdd()
+            .UseIdentityColumn();
+
+        builder.Property(s => s.SaleDate)
+            .IsRequired();
+
+        builder.Property(s => s.CustomerId)
+            .HasColumnType("uuid")
+            .IsRequired();
+
+        builder.Property(s => s.CustomerName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(s => s.BranchId)
+            .HasColumnType("uuid")
+            .IsRequired();
+
+        builder.Property(s => s.BranchName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(s => s.TotalAmount)
+            .HasColumnType("numeric(18,2)")
+            .IsRequired();
+
+        builder.Property(s => s.IsCancelled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(s => s.CreatedAt)
+            .IsRequired();
+
+        builder.Property(s => s.UpdatedAt);
+
+        builder.HasMany(s => s.Items)
+            .WithOne(i => i.Sale)
+            .HasForeignKey(i => i.SaleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Tell EF Core to use the private _items backing field
+        builder.Navigation(s => s.Items).HasField("_items").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasIndex(s => s.CustomerId);
+        builder.HasIndex(s => s.BranchId);
+        builder.HasIndex(s => s.IsCancelled);
+        builder.HasIndex(s => s.SaleNumber).IsUnique();
+    }
+}
