@@ -39,7 +39,48 @@ public class SaleRepository : ISaleRepository
 
     public async Task<Sale> UpdateAsync(Sale sale, CancellationToken cancellationToken = default)
     {
-        _context.Sales.Update(sale);
+        // Detach any currently tracked Sale or SaleItem entities that conflict
+        var trackedSale = _context.ChangeTracker.Entries<Sale>()
+            .FirstOrDefault(e => e.Entity.Id == sale.Id);
+        if (trackedSale != null)
+            trackedSale.State = EntityState.Detached;
+
+        foreach (var itemEntry in _context.ChangeTracker.Entries<SaleItem>()
+            .Where(e => e.Entity.SaleId == sale.Id).ToList())
+        {
+            itemEntry.State = EntityState.Detached;
+        }
+
+        // Load existing item IDs from store to determine which are new vs existing
+        var existingItemIds = await _context.SaleItems
+            .Where(si => si.SaleId == sale.Id)
+            .Select(si => si.Id)
+            .ToListAsync(cancellationToken);
+
+        var currentItemIds = sale.Items.Select(i => i.Id).ToHashSet();
+
+        // Remove stale items
+        var staleIds = existingItemIds.Where(id => !currentItemIds.Contains(id)).ToList();
+        if (staleIds.Count > 0)
+        {
+            var staleItems = await _context.SaleItems
+                .Where(si => staleIds.Contains(si.Id))
+                .ToListAsync(cancellationToken);
+            _context.SaleItems.RemoveRange(staleItems);
+        }
+
+        // Mark sale header as modified
+        _context.Entry(sale).State = EntityState.Modified;
+
+        // For each item: add if new, modify if existing
+        foreach (var item in sale.Items)
+        {
+            if (existingItemIds.Contains(item.Id))
+                _context.Entry(item).State = EntityState.Modified;
+            else
+                _context.Entry(item).State = EntityState.Added;
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
         return sale;
     }

@@ -24,7 +24,20 @@ namespace Ambev.DeveloperEvaluation.WebApi.Middleware
             {
                 await HandleValidationExceptionAsync(context, ex);
             }
+            catch (KeyNotFoundException ex)
+            {
+                await HandleKeyNotFoundExceptionAsync(context, ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                await HandleInvalidOperationExceptionAsync(context, ex);
+            }
         }
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         private static Task HandleValidationExceptionAsync(HttpContext context, ValidationException exception)
         {
@@ -39,12 +52,35 @@ namespace Ambev.DeveloperEvaluation.WebApi.Middleware
                     .Select(error => (ValidationErrorDetail)error)
             };
 
-            var jsonOptions = new JsonSerializerOptions
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+        }
+
+        private static Task HandleKeyNotFoundExceptionAsync(HttpContext context, KeyNotFoundException exception)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+
+            var response = new ApiResponse
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                Success = false,
+                Message = exception.Message
             };
 
-            return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+        }
+
+        private static Task HandleInvalidOperationExceptionAsync(HttpContext context, InvalidOperationException exception)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+            var response = new ApiResponse
+            {
+                Success = false,
+                Message = exception.Message
+            };
+
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
         }
     }
 }

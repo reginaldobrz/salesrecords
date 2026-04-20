@@ -82,13 +82,20 @@ public class Program
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<DefaultContext>();
-                var pending = db.Database.GetPendingMigrations();
-                if (pending.Any())
+                if (db.Database.IsRelational())
                 {
-                    Log.Information("Applying {Count} pending migration(s): {Migrations}",
-                        pending.Count(), string.Join(", ", pending));
-                    db.Database.Migrate();
-                    Log.Information("Migrations applied successfully.");
+                    var pending = db.Database.GetPendingMigrations();
+                    if (pending.Any())
+                    {
+                        Log.Information("Applying {Count} pending migration(s): {Migrations}",
+                            pending.Count(), string.Join(", ", pending));
+                        db.Database.Migrate();
+                        Log.Information("Migrations applied successfully.");
+                    }
+                }
+                else
+                {
+                    db.Database.EnsureCreated();
                 }
             }
 

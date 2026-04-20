@@ -68,12 +68,7 @@ public class SalesController : BaseController
         var command = new GetSaleCommand(id);
         var result = await _mediator.Send(command, cancellationToken);
 
-        return Ok(new ApiResponseWithData<GetSaleResponse>
-        {
-            Success = true,
-            Message = "Sale retrieved successfully",
-            Data = _mapper.Map<GetSaleResponse>(result)
-        });
+        return Ok(_mapper.Map<GetSaleResponse>(result));
     }
 
     /// <summary>Returns a paginated list of all sales.</summary>
@@ -88,12 +83,7 @@ public class SalesController : BaseController
         var command = new GetSalesCommand(_page, _size);
         var result = await _mediator.Send(command, cancellationToken);
 
-        return Ok(new ApiResponseWithData<GetSalesResponse>
-        {
-            Success = true,
-            Message = "Sales retrieved successfully",
-            Data = _mapper.Map<GetSalesResponse>(result)
-        });
+        return Ok(_mapper.Map<GetSalesResponse>(result));
     }
 
     /// <summary>Updates an existing sale's header and line items.</summary>
@@ -116,12 +106,7 @@ public class SalesController : BaseController
 
         var result = await _mediator.Send(command, cancellationToken);
 
-        return Ok(new ApiResponseWithData<UpdateSaleResponse>
-        {
-            Success = true,
-            Message = "Sale updated successfully",
-            Data = _mapper.Map<UpdateSaleResponse>(result)
-        });
+        return Ok(_mapper.Map<UpdateSaleResponse>(result));
     }
 
     /// <summary>Cancels (logically deletes) a sale by its unique identifier.</summary>
@@ -136,10 +121,6 @@ public class SalesController : BaseController
         var command = new DeleteSaleCommand(id);
         await _mediator.Send(command, cancellationToken);
 
-        return Ok(new ApiResponse
-        {
-            Success = true,
-            Message = "Sale cancelled successfully"
-        });
+        return Ok(new ApiResponse { Success = true, Message = "Sale cancelled successfully" });
     }
 }
