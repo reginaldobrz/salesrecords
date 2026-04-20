@@ -4,6 +4,7 @@ using Ambev.DeveloperEvaluation.Domain.Repositories;
 using Ambev.DeveloperEvaluation.Unit.Application.Sales.TestData;
 using AutoMapper;
 using FluentAssertions;
+using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -31,8 +32,7 @@ public class UpdateSaleHandlerTests
         _handler = new UpdateSaleHandler(_saleRepository, _mapper, _publisher, _logger);
     }
 
-    [Fact(DisplayName = "Given sale not found When Handle Then throws KeyNotFoundException")]
-    public async Task Given_SaleNotFound_When_Handle_Then_ThrowsKeyNotFoundException()
+    [Fact(DisplayName = "Given sale not found When Handle Then throws KeyNotFoundException")]    public async Task Given_SaleNotFound_When_Handle_Then_ThrowsKeyNotFoundException()
     {
         // Given
         var command = new UpdateSaleCommand
@@ -168,5 +168,27 @@ public class UpdateSaleHandlerTests
 
         await _saleRepository.Received(1).UpdateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         await _publisher.Received(1).Publish(Arg.Any<Ambev.DeveloperEvaluation.Application.Sales.Events.SaleModifiedEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "Given invalid command When Handle Then throws ValidationException")]
+    public async Task Given_InvalidCommand_When_Handle_Then_ThrowsValidationException()
+    {
+        // Given — empty CustomerName violates the NotEmpty validator rule
+        var command = new UpdateSaleCommand
+        {
+            Id = Guid.Empty,   // empty Id triggers validation failure
+            SaleDate = DateTime.UtcNow,
+            CustomerId = Guid.NewGuid(),
+            CustomerName = string.Empty,
+            BranchId = Guid.NewGuid(),
+            BranchName = "Branch HQ",
+            Items = new List<UpdateSaleItemDto>()
+        };
+
+        // When
+        var act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Then
+        await act.Should().ThrowAsync<ValidationException>();
     }
 }

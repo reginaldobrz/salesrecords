@@ -13,6 +13,50 @@ public class SaleEventsAndCommandsTests
 {
     // ────────────────────────── Event Tests ──────────────────────────
 
+    [Fact(DisplayName = "Given valid data When create SaleCreatedEvent Then properties are set correctly")]
+    public void Given_ValidData_When_CreateSaleCreatedEvent_Then_PropertiesAreSet()
+    {
+        // Given
+        var saleId = Guid.NewGuid();
+        const int saleNumber = 42;
+        var occurredAt = DateTime.UtcNow;
+
+        // When
+        var evt = new SaleCreatedEvent
+        {
+            SaleId = saleId,
+            SaleNumber = saleNumber,
+            OccurredAt = occurredAt
+        };
+
+        // Then
+        evt.SaleId.Should().Be(saleId);
+        evt.SaleNumber.Should().Be(saleNumber);
+        evt.OccurredAt.Should().Be(occurredAt);
+    }
+
+    [Fact(DisplayName = "Given valid data When create SaleCancelledEvent Then properties are set correctly")]
+    public void Given_ValidData_When_CreateSaleCancelledEvent_Then_PropertiesAreSet()
+    {
+        // Given
+        var saleId = Guid.NewGuid();
+        const int saleNumber = 7;
+        var occurredAt = DateTime.UtcNow;
+
+        // When
+        var evt = new SaleCancelledEvent
+        {
+            SaleId = saleId,
+            SaleNumber = saleNumber,
+            OccurredAt = occurredAt
+        };
+
+        // Then
+        evt.SaleId.Should().Be(saleId);
+        evt.SaleNumber.Should().Be(saleNumber);
+        evt.OccurredAt.Should().Be(occurredAt);
+    }
+
     [Fact(DisplayName = "Given valid data When create ItemCancelledEvent Then properties are set correctly")]
     public void Given_ValidData_When_CreateItemCancelledEvent_Then_PropertiesAreSet()
     {
@@ -116,6 +160,7 @@ public class SaleEventsAndCommandsTests
     }
 
     // ────────────────────────── UpdateSaleCommand.Validate() ──────────────────────────
+    [Fact(DisplayName = "Given valid UpdateSaleCommand When Validate Then IsValid is true")]
     public void Given_ValidUpdateSaleCommand_When_Validate_Then_IsValid()
     {
         // Given

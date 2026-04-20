@@ -12,6 +12,34 @@ public class SaleTests
 {
     // ────────────────────────── Discount Tier Tests ──────────────────────────
 
+    [Fact(DisplayName = "Given quantity of 1 When CalculateDiscount Then discount is 0%")]
+    public void Given_QuantityOf1_When_CalculateDiscount_Then_NoDiscount()
+    {
+        // Given — README rule: "Purchases below 4 items cannot have a discount"
+        var item = SaleTestData.GenerateItem(quantity: 1, unitPrice: 100m);
+
+        // When
+        item.CalculateDiscount();
+
+        // Then
+        item.Discount.Should().Be(0m);
+        item.TotalAmount.Should().Be(100m); // 1 * 100 * 1.0
+    }
+
+    [Fact(DisplayName = "Given quantity of 2 When CalculateDiscount Then discount is 0%")]
+    public void Given_QuantityOf2_When_CalculateDiscount_Then_NoDiscount()
+    {
+        // Given — README rule: "Purchases below 4 items cannot have a discount"
+        var item = SaleTestData.GenerateItem(quantity: 2, unitPrice: 100m);
+
+        // When
+        item.CalculateDiscount();
+
+        // Then
+        item.Discount.Should().Be(0m);
+        item.TotalAmount.Should().Be(200m); // 2 * 100 * 1.0
+    }
+
     [Fact(DisplayName = "Given quantity below 4 When CalculateDiscount Then discount is 0%")]
     public void Given_QuantityBelow4_When_CalculateDiscount_Then_NoDiscount()
     {
@@ -257,5 +285,29 @@ public class SaleTests
 
         // Then
         item.Sale.Should().BeSameAs(sale);
+    }
+
+    [Fact(DisplayName = "Given sale When AddItem Then item is in collection with SaleId set")]
+    public void Given_Sale_When_AddItem_Then_ItemIsAddedWithSaleIdSet()
+    {
+        // Given
+        var sale = new Sale
+        {
+            Id = Guid.NewGuid(),
+            SaleNumber = 1,
+            SaleDate = DateTime.UtcNow,
+            CustomerId = Guid.NewGuid(),
+            CustomerName = "Acme Corp",
+            BranchId = Guid.NewGuid(),
+            BranchName = "Branch A"
+        };
+        var item = SaleTestData.GenerateItem(quantity: 2, unitPrice: 50m);
+
+        // When
+        sale.AddItem(item);
+
+        // Then
+        sale.Items.Should().Contain(item);
+        item.SaleId.Should().Be(sale.Id);
     }
 }
