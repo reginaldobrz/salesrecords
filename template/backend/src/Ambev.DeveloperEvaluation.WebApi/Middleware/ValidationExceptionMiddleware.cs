@@ -28,6 +28,10 @@ namespace Ambev.DeveloperEvaluation.WebApi.Middleware
             {
                 await HandleKeyNotFoundExceptionAsync(context, ex);
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                await HandleUnauthorizedExceptionAsync(context, ex);
+            }
             catch (InvalidOperationException ex)
             {
                 await HandleInvalidOperationExceptionAsync(context, ex);
@@ -73,6 +77,20 @@ namespace Ambev.DeveloperEvaluation.WebApi.Middleware
         {
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+            var response = new ApiResponse
+            {
+                Success = false,
+                Message = exception.Message
+            };
+
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+        }
+
+        private static Task HandleUnauthorizedExceptionAsync(HttpContext context, UnauthorizedAccessException exception)
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
 
             var response = new ApiResponse
             {

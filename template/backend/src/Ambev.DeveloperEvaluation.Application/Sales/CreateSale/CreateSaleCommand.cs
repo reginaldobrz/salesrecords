@@ -25,7 +25,7 @@ public class CreateSaleCommand : IRequest<CreateSaleResult>
     public string BranchName { get; set; } = string.Empty;
 
     /// <summary>Line items to include in the sale.</summary>
-    public List<CreateSaleItemDto> Items { get; set; } = new();
+    public List<CreateSaleItemDto> Items { get; set; } = [];
 
     public ValidationResultDetail Validate()
     {

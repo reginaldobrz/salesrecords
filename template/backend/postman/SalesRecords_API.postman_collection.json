@@ -1,0 +1,1398 @@
+{
+    "info": {
+        "_postman_id": "f7e8d9c0-b1a2-3456-789a-bcdef0123456",
+        "name": "SalesRecords API",
+        "description": "# SalesRecords API\n\nColeção completa para a API SalesRecords com fluxos de sucesso e falha, auto-preenchimento de variáveis e exemplos de resposta para cada endpoint.\n\n---\n\n## Fluxo recomendado\n\n1. **Criar Usuário** (`POST /api/users`) — cria o usuário admin (captura `user_id`)\n2. **Login** (`POST /api/auth`) — autentica e captura o `token` automaticamente\n3. **Criar Venda — Sem Desconto** — captura `sale_id`\n4. **Criar Venda — Desconto 10%** — captura `sale_id_to_cancel`\n5. Executar os demais endpoints de consulta, atualização e cancelamento\n\n---\n\n## Regras de negócio — Descontos\n\n| Quantidade por item | Desconto aplicado |\n|---|---|\n| 1 a 3 unidades | Sem desconto (0%) |\n| 4 a 9 unidades | **10% de desconto** |\n| 10 a 20 unidades | **20% de desconto** |\n| Mais de 20 unidades | ❌ Não permitido — retorna 400 |\n\n---\n\n## Variáveis de ambiente\n\n| Variável | Preenchido por | Descrição |\n|---|---|---|\n| `base_url` | Manual | URL base da API |\n| `token` | Login — Sucesso | JWT Bearer token |\n| `user_id` | Criar Usuário | ID do usuário criado |\n| `sale_id` | Criar Venda — Sem Desconto | ID da venda principal |\n| `sale_id_to_cancel` | Criar Venda — Desconto 10% | ID para testes de cancelamento |\n\n---\n\n## Estrutura das respostas\n\nA API envolve todas as respostas em um envelope `ApiResponse`:\n\n```json\n{\n  \"success\": true,\n  \"message\": \"...\",\n  \"errors\": [],\n  \"data\": { ... }\n}\n```\n\n> **Nota:** Alguns endpoints retornam `data` duplo-aninhado dependendo do método do controlador. Os scripts de teste já tratam corretamente cada caso.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "if (!pm.environment.get('base_url')) {",
+                    "    pm.environment.set('base_url', 'http://localhost:8080');",
+                    "    console.warn('⚠️  base_url não configurado — usando padrão: http://localhost:8080');",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "🔐 Autenticação",
+            "description": "Endpoints de autenticação JWT.\n\nExecute **Login — Sucesso** primeiro para obter o token que é usado automaticamente em todas as demais requisições da coleção.",
+            "item": [
+                {
+                    "name": "Login — Sucesso ✅",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                    "",
+                                    "pm.test('Resposta contém token JWT', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    // A resposta é dupla-encapsulada: { data: { data: { token, email, name, role } } }",
+                                    "    pm.expect(json.success).to.be.true;",
+                                    "    pm.expect(json.data).to.be.an('object');",
+                                    "    pm.expect(json.data.data).to.be.an('object');",
+                                    "    pm.expect(json.data.data.token).to.be.a('string').and.not.empty;",
+                                    "});",
+                                    "",
+                                    "pm.test('Token salvo automaticamente no ambiente', () => {",
+                                    "    const body = pm.response.json();",
+                                    "    const token = body.data.data.token;",
+                                    "    pm.environment.set('token', token);",
+                                    "    pm.environment.set('user_email', body.data.data.email);",
+                                    "    pm.expect(pm.environment.get('token')).to.not.be.empty;",
+                                    "    console.log('✅ Token JWT capturado. Usuário: ' + body.data.data.email);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "auth"]
+                        },
+                        "description": "Autentica o usuário com e-mail e senha e retorna um **JWT Bearer Token**.\n\nO token é **capturado automaticamente** na variável de ambiente `{{token}}` e utilizado em todas as requisições que requerem autenticação.\n\n**Pré-requisito:** O usuário referenciado por `{{admin_email}}` deve existir (criado via `POST /api/users`).\n\n**Estrutura da resposta:** O token está em `data.data.token` (resposta dupla-encapsulada)."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Autenticado com sucesso",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"email\": \"admin@salesrecords.com\",\n    \"password\": \"Test@123456\"\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/auth", "host": ["{{base_url}}"], "path": ["api", "auth"]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"success\": true,\n    \"message\": \"User authenticated successfully\",\n    \"errors\": [],\n    \"data\": {\n      \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMGQ1ZTRmMy1hNmI3LTg5MDEtY2RlZi0wMTIzNDU2Nzg5MDEiLCJlbWFpbCI6ImFkbWluQHNhbGVzcmVjb3Jkcy5jb20iLCJuYW1lIjoiQWRtaW4gVXNlciIsInJvbGUiOiJBZG1pbiIsImlhdCI6MTc0NTEzNjAwMH0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c\",\n      \"email\": \"admin@salesrecords.com\",\n      \"name\": \"Admin User\",\n      \"role\": \"Admin\"\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "401 Unauthorized — Credenciais inválidas",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"email\": \"admin@salesrecords.com\",\n    \"password\": \"senha_incorreta\"\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/auth", "host": ["{{base_url}}"], "path": ["api", "auth"]}
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Invalid credentials\",\n  \"errors\": []\n}"
+                        },
+                        {
+                            "name": "400 Bad Request — E-mail inválido",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"email\": \"nao-e-um-email\",\n    \"password\": \"Test@123456\"\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/auth", "host": ["{{base_url}}"], "path": ["api", "auth"]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"property\": \"Email\",\n      \"error\": \"'Email' is not a valid email address.\"\n    }\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Login — Credenciais inválidas ❌ (401)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 401 - Unauthorized', () => pm.response.to.have.status(401));",
+                                    "pm.test('Resposta indica falha de autenticação', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.expect(json.success).to.be.false;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "noauth"},
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"senha_incorreta_123\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "auth"]
+                        },
+                        "description": "Tenta autenticar com senha incorreta. Deve retornar **401 Unauthorized**."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Login — Campo obrigatório ausente ❌ (400)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 400 - Bad Request', () => pm.response.to.have.status(400));",
+                                    "pm.test('Resposta contém erros de validação', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.expect(json.success).to.be.false;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "noauth"},
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{admin_email}}\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "auth"]
+                        },
+                        "description": "Tenta autenticar sem o campo `password`. Deve retornar **400 Bad Request** com erros de validação."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "👤 Usuários",
+            "description": "Endpoints de gerenciamento de usuários.\n\n> **Não requerem autenticação** (exceto via configuração do servidor).\n\nExecute **Criar Usuário** antes do Login para registrar o administrador no sistema.",
+            "item": [
+                {
+                    "name": "Criar Usuário ✅",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 201 - Created', () => pm.response.to.have.status(201));",
+                                    "",
+                                    "pm.test('Usuário criado com ID válido', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    // Resposta single-wrapped via ControllerBase.Created: { success, message, data: { id, ... } }",
+                                    "    pm.expect(json.success).to.be.true;",
+                                    "    pm.expect(json.data).to.have.property('id');",
+                                    "    pm.expect(json.data.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
+                                    "});",
+                                    "",
+                                    "pm.test('ID do usuário salvo no ambiente', () => {",
+                                    "    const userId = pm.response.json().data.id;",
+                                    "    pm.environment.set('user_id', userId);",
+                                    "    pm.expect(pm.environment.get('user_id')).to.not.be.empty;",
+                                    "    console.log('✅ user_id capturado: ' + userId);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "noauth"},
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"adminuser\",\n    \"password\": \"{{admin_password}}\",\n    \"phone\": \"(11) 99999-9999\",\n    \"email\": \"{{admin_email}}\",\n    \"status\": 1,\n    \"role\": 3\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/users",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users"]
+                        },
+                        "description": "Cria um novo usuário no sistema.\n\nO `id` gerado é **capturado automaticamente** na variável `{{user_id}}`.\n\n**Valores de enum:**\n\n| Campo | Valor | Significado |\n|---|---|---|\n| `status` | `1` | Active |\n| `status` | `2` | Inactive |\n| `role` | `1` | Customer |\n| `role` | `2` | Manager |\n| `role` | `3` | Admin |\n\n**Requisitos de senha:** mínimo 8 caracteres, com maiúsculas, minúsculas, número e caractere especial."
+                    },
+                    "response": [
+                        {
+                            "name": "201 Created — Usuário criado com sucesso",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"username\": \"adminuser\",\n    \"password\": \"Test@123456\",\n    \"phone\": \"(11) 99999-9999\",\n    \"email\": \"admin@salesrecords.com\",\n    \"status\": 1,\n    \"role\": 3\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api", "users"]}
+                            },
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": true,\n  \"message\": \"User created successfully\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"c0d5e4f3-a6b7-8901-cdef-012345678901\",\n    \"name\": \"adminuser\",\n    \"email\": \"admin@salesrecords.com\",\n    \"phone\": \"(11) 99999-9999\",\n    \"role\": 3,\n    \"status\": 1\n  }\n}"
+                        },
+                        {
+                            "name": "400 Bad Request — E-mail já cadastrado",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"username\": \"adminuser\",\n    \"password\": \"Test@123456\",\n    \"phone\": \"(11) 99999-9999\",\n    \"email\": \"admin@salesrecords.com\",\n    \"status\": 1,\n    \"role\": 3\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api", "users"]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": false,\n  \"message\": \"User with this email already exists\",\n  \"errors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Criar Usuário — Dados inválidos ❌ (400)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 400 - Bad Request', () => pm.response.to.have.status(400));",
+                                    "pm.test('Erros de validação retornados', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.expect(json.success).to.be.false;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {"type": "noauth"},
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"\",\n    \"password\": \"fraca\",\n    \"phone\": \"telefone-invalido\",\n    \"email\": \"nao-e-email\",\n    \"status\": 1,\n    \"role\": 3\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/users",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users"]
+                        },
+                        "description": "Tenta criar um usuário com dados inválidos: e-mail inválido, senha fraca, username vazio.\n\nDeve retornar **400 Bad Request** com lista de erros de validação."
+                    },
+                    "response": [
+                        {
+                            "name": "400 Bad Request — Múltiplos erros de validação",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"username\": \"\",\n    \"password\": \"fraca\",\n    \"phone\": \"telefone-invalido\",\n    \"email\": \"nao-e-email\",\n    \"status\": 1,\n    \"role\": 3\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {"raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api", "users"]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"property\": \"Username\",\n      \"error\": \"'Username' must not be empty.\"\n    },\n    {\n      \"property\": \"Email\",\n      \"error\": \"'Email' is not a valid email address.\"\n    },\n    {\n      \"property\": \"Password\",\n      \"error\": \"Password must be at least 8 characters long.\"\n    }\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Buscar Usuário por ID ✅",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                    "",
+                                    "pm.test('Dados do usuário retornados', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    // GetUser é dupla-encapsulada: outer { data: inner { data: userObj } }",
+                                    "    pm.expect(json.success).to.be.true;",
+                                    "    pm.expect(json.data.data).to.be.an('object');",
+                                    "    pm.expect(json.data.data.id).to.equal(pm.environment.get('user_id'));",
+                                    "    pm.expect(json.data.data.email).to.equal(pm.environment.get('admin_email'));",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/users/{{user_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users", "{{user_id}}"]
+                        },
+                        "description": "Busca os dados de um usuário pelo ID.\n\nUsa a variável `{{user_id}}` capturada automaticamente pelo **Criar Usuário**.\n\n**Estrutura da resposta:** Os dados do usuário estão em `data.data` (resposta dupla-encapsulada)."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Usuário encontrado",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {"raw": "{{base_url}}/api/users/c0d5e4f3-a6b7-8901-cdef-012345678901", "host": ["{{base_url}}"], "path": ["api", "users", "c0d5e4f3-a6b7-8901-cdef-012345678901"]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"success\": true,\n    \"message\": \"User retrieved successfully\",\n    \"errors\": [],\n    \"data\": {\n      \"id\": \"c0d5e4f3-a6b7-8901-cdef-012345678901\",\n      \"name\": \"adminuser\",\n      \"email\": \"admin@salesrecords.com\",\n      \"phone\": \"(11) 99999-9999\",\n      \"role\": 3,\n      \"status\": 1\n    }\n  }\n}"
+                        },
+                        {
+                            "name": "404 Not Found — Usuário não encontrado",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {"raw": "{{base_url}}/api/users/00000000-0000-0000-0000-000000000000", "host": ["{{base_url}}"], "path": ["api", "users", "00000000-0000-0000-0000-000000000000"]}
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": false,\n  \"message\": \"Resource not found\",\n  \"errors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Buscar Usuário — Não encontrado ❌ (404)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 404 - Not Found', () => pm.response.to.have.status(404));",
+                                    "pm.test('Resposta indica recurso não encontrado', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.expect(json.success).to.be.false;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/users/00000000-0000-0000-0000-000000000099",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users", "00000000-0000-0000-0000-000000000099"]
+                        },
+                        "description": "Tenta buscar um usuário com ID que não existe. Deve retornar **404 Not Found**."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Excluir Usuário ✅",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Usuário excluído com sucesso', () => {",
+                                    "    const json = pm.response.json();",
+                                    "    pm.expect(json.success).to.be.true;",
+                                    "    // Resposta dupla-encapsulada: { data: { message: '...' } }",
+                                    "    pm.expect(json.data.message).to.include('deleted');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/users/{{user_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users", "{{user_id}}"]
+                        },
+                        "description": "Exclui permanentemente um usuário pelo ID.\n\n> ⚠️ **Atenção:** Esta é uma exclusão física (hard delete). O usuário não poderá mais fazer login após esta operação. Execute por último no fluxo de testes de usuário."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Usuário excluído",
+                            "originalRequest": {
+                                "method": "DELETE",
+                                "header": [],
+                                "url": {"raw": "{{base_url}}/api/users/c0d5e4f3-a6b7-8901-cdef-012345678901", "host": ["{{base_url}}"], "path": ["api", "users", "c0d5e4f3-a6b7-8901-cdef-012345678901"]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                            "cookie": [],
+                            "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"success\": true,\n    \"message\": \"User deleted successfully\",\n    \"errors\": []\n  }\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "🛒 Vendas",
+            "description": "Endpoints completos de gerenciamento de vendas (CRUD + cancelamento).\n\n**Todos requerem autenticação Bearer JWT** — execute o **Login** primeiro.\n\n## Regras de negócio\n\n- Até 3 itens por produto: sem desconto\n- De 4 a 9 itens: **10% de desconto** (`discount: 0.10`)\n- De 10 a 20 itens: **20% de desconto** (`discount: 0.20`)\n- Mais de 20 itens: **não permitido** (400)\n- Uma venda cancelada não pode ser atualizada (400)",
+            "item": [
+                {
+                    "name": "📦 Criar Venda",
+                    "description": "Cenários de criação de venda com diferentes quantidades de itens para validação das regras de desconto.",
+                    "item": [
+                        {
+                            "name": "Criar Venda — Sem desconto (qty=2) ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 201 - Created', () => pm.response.to.have.status(201));",
+                                            "",
+                                            "pm.test('Venda criada com ID válido', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    // Resposta single-wrapped via ControllerBase.Created: { success, message, data: { id, ... } }",
+                                            "    pm.expect(json.success).to.be.true;",
+                                            "    pm.expect(json.data.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
+                                            "});",
+                                            "",
+                                            "pm.test('Regra de desconto: qty=2 → sem desconto (0%)', () => {",
+                                            "    const items = pm.response.json().data.items;",
+                                            "    pm.expect(items).to.be.an('array').with.length.at.least(1);",
+                                            "    pm.expect(items[0].discount).to.equal(0);",
+                                            "    pm.expect(items[0].quantity).to.be.below(4);",
+                                            "});",
+                                            "",
+                                            "pm.test('sale_id salvo no ambiente', () => {",
+                                            "    const saleId = pm.response.json().data.id;",
+                                            "    pm.environment.set('sale_id', saleId);",
+                                            "    console.log('✅ sale_id capturado: ' + saleId);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T10:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Cliente Exemplo Ltda\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial São Paulo\",\n    \"items\": [\n        {\n            \"productId\": \"{{product_id_1}}\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 2,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Cria uma venda com **2 unidades** de um produto → sem desconto aplicado.\n\nO `id` da venda criada é **salvo automaticamente** em `{{sale_id}}`.\n\n**Cálculo esperado:**\n- qty=2, unitPrice=100,00\n- discount=0,00\n- itemTotal=200,00\n- saleTotal=200,00"
+                            },
+                            "response": [
+                                {
+                                    "name": "201 Created — Venda sem desconto",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"saleDate\": \"2026-04-20T10:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Cliente Exemplo Ltda\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial São Paulo\",\n    \"items\": [\n        {\n            \"productId\": \"33333333-3333-3333-3333-333333333333\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 2,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales", "host": ["{{base_url}}"], "path": ["api", "sales"]}
+                                    },
+                                    "status": "Created",
+                                    "code": 201,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"Sale created successfully\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"a8b3c2d1-e4f5-6789-abcd-ef0123456789\",\n    \"saleNumber\": 1,\n    \"saleDate\": \"2026-04-20T10:00:00Z\",\n    \"customerName\": \"Cliente Exemplo Ltda\",\n    \"branchName\": \"Filial São Paulo\",\n    \"totalAmount\": 200.00,\n    \"isCancelled\": false,\n    \"items\": [\n      {\n        \"id\": \"b9c4d3e2-f5a6-7890-bcde-f01234567890\",\n        \"productId\": \"33333333-3333-3333-3333-333333333333\",\n        \"productName\": \"Produto Alpha\",\n        \"quantity\": 2,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.00,\n        \"totalAmount\": 200.00\n      }\n    ]\n  }\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Criar Venda — Desconto 10% (qty=5) ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 201 - Created', () => pm.response.to.have.status(201));",
+                                            "",
+                                            "pm.test('Regra de desconto: qty=5 → 10% de desconto', () => {",
+                                            "    const items = pm.response.json().data.items;",
+                                            "    pm.expect(items[0].discount).to.equal(0.10);",
+                                            "    // totalAmount = qty * unitPrice * (1 - discount) = 5 * 100 * 0.9 = 450",
+                                            "    pm.expect(items[0].totalAmount).to.equal(450.00);",
+                                            "});",
+                                            "",
+                                            "pm.test('sale_id_to_cancel salvo no ambiente', () => {",
+                                            "    const saleId = pm.response.json().data.id;",
+                                            "    pm.environment.set('sale_id_to_cancel', saleId);",
+                                            "    console.log('✅ sale_id_to_cancel capturado: ' + saleId);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T11:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Distribuidora Beta S.A.\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial Rio de Janeiro\",\n    \"items\": [\n        {\n            \"productId\": \"{{product_id_1}}\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 5,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Cria uma venda com **5 unidades** → **10% de desconto** aplicado.\n\nO ID desta venda é salvo em `{{sale_id_to_cancel}}` para ser usado no teste de cancelamento.\n\n**Cálculo esperado:**\n- qty=5, unitPrice=100,00\n- discount=0,10 (10%)\n- itemTotal=5×100×0,90=450,00\n- saleTotal=450,00"
+                            },
+                            "response": [
+                                {
+                                    "name": "201 Created — Desconto 10% aplicado",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"saleDate\": \"2026-04-20T11:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Distribuidora Beta S.A.\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial Rio de Janeiro\",\n    \"items\": [\n        {\n            \"productId\": \"33333333-3333-3333-3333-333333333333\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 5,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales", "host": ["{{base_url}}"], "path": ["api", "sales"]}
+                                    },
+                                    "status": "Created",
+                                    "code": 201,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"Sale created successfully\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"c1d4e5f6-a7b8-9012-cdef-012345678901\",\n    \"saleNumber\": 2,\n    \"saleDate\": \"2026-04-20T11:00:00Z\",\n    \"customerName\": \"Distribuidora Beta S.A.\",\n    \"branchName\": \"Filial Rio de Janeiro\",\n    \"totalAmount\": 450.00,\n    \"isCancelled\": false,\n    \"items\": [\n      {\n        \"id\": \"d2e5f6a7-b8c9-0123-defa-123456789012\",\n        \"productId\": \"33333333-3333-3333-3333-333333333333\",\n        \"productName\": \"Produto Alpha\",\n        \"quantity\": 5,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.10,\n        \"totalAmount\": 450.00\n      }\n    ]\n  }\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Criar Venda — Desconto 20% (qty=10) ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 201 - Created', () => pm.response.to.have.status(201));",
+                                            "",
+                                            "pm.test('Regra de desconto: qty=10 → 20% de desconto', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    const items = json.data.items;",
+                                            "    pm.expect(items[0].discount).to.equal(0.20);",
+                                            "    // 10 * 100 * 0.8 = 800",
+                                            "    pm.expect(items[0].totalAmount).to.equal(800.00);",
+                                            "    pm.expect(json.data.totalAmount).to.equal(800.00);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T12:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Atacado Gamma Ltda\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial Campinas\",\n    \"items\": [\n        {\n            \"productId\": \"{{product_id_2}}\",\n            \"productName\": \"Produto Beta\",\n            \"quantity\": 10,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Cria uma venda com **10 unidades** → **20% de desconto** aplicado.\n\n**Cálculo esperado:**\n- qty=10, unitPrice=100,00\n- discount=0,20 (20%)\n- itemTotal=10×100×0,80=800,00\n- saleTotal=800,00"
+                            },
+                            "response": [
+                                {
+                                    "name": "201 Created — Desconto 20% aplicado",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"saleDate\": \"2026-04-20T12:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Atacado Gamma Ltda\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial Campinas\",\n    \"items\": [\n        {\n            \"productId\": \"44444444-4444-4444-4444-444444444444\",\n            \"productName\": \"Produto Beta\",\n            \"quantity\": 10,\n            \"unitPrice\": 100.00\n        }\n    ]\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales", "host": ["{{base_url}}"], "path": ["api", "sales"]}
+                                    },
+                                    "status": "Created",
+                                    "code": 201,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"Sale created successfully\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"e3f6a7b8-c9d0-1234-efab-234567890123\",\n    \"saleNumber\": 3,\n    \"saleDate\": \"2026-04-20T12:00:00Z\",\n    \"customerName\": \"Atacado Gamma Ltda\",\n    \"branchName\": \"Filial Campinas\",\n    \"totalAmount\": 800.00,\n    \"isCancelled\": false,\n    \"items\": [\n      {\n        \"id\": \"f4a7b8c9-d0e1-2345-fabc-345678901234\",\n        \"productId\": \"44444444-4444-4444-4444-444444444444\",\n        \"productName\": \"Produto Beta\",\n        \"quantity\": 10,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.20,\n        \"totalAmount\": 800.00\n      }\n    ]\n  }\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Criar Venda — Quantidade excedida (qty=21) ❌ (400)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 400 - Bad Request', () => pm.response.to.have.status(400));",
+                                            "pm.test('Erro: quantidade excede limite de 20', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    pm.expect(json.success).to.be.false;",
+                                            "    console.log('Erros retornados:', JSON.stringify(json.errors || json));",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T13:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Cliente Inválido\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial Teste\",\n    \"items\": [\n        {\n            \"productId\": \"{{product_id_1}}\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 21,\n            \"unitPrice\": 50.00\n        }\n    ]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Tenta criar uma venda com **21 unidades** de um produto. Deve retornar **400 Bad Request** pois o máximo permitido é 20 unidades por item."
+                            },
+                            "response": [
+                                {
+                                    "name": "400 Bad Request — Quantidade máxima excedida",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"saleDate\": \"2026-04-20T13:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Cliente Inválido\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial Teste\",\n    \"items\": [{\"productId\": \"33333333-3333-3333-3333-333333333333\", \"productName\": \"Produto Alpha\", \"quantity\": 21, \"unitPrice\": 50.00}]\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales", "host": ["{{base_url}}"], "path": ["api", "sales"]}
+                                    },
+                                    "status": "Bad Request",
+                                    "code": 400,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"property\": \"Items[0].Quantity\",\n      \"error\": \"Cannot sell more than 20 identical items.\"\n    }\n  ]\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Criar Venda — Sem autenticação ❌ (401)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 401 - Unauthorized', () => pm.response.to.have.status(401));",
+                                            "pm.test('Acesso negado sem token', () => {",
+                                            "    pm.expect(pm.response.code).to.equal(401);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "auth": {"type": "noauth"},
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T10:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Cliente Teste\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial Teste\",\n    \"items\": [{\"productId\": \"{{product_id_1}}\", \"productName\": \"Produto\", \"quantity\": 2, \"unitPrice\": 50.00}]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Tenta criar uma venda **sem Bearer token**. Deve retornar **401 Unauthorized**.\n\nEsta requisição **sobrescreve a autenticação** da coleção com `noauth`."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Criar Venda — Body inválido ❌ (400)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 400 - Bad Request', () => pm.response.to.have.status(400));",
+                                            "pm.test('Erros de validação retornados', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    pm.expect(json.success).to.be.false;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"data-invalida\",\n    \"customerId\": \"00000000-0000-0000-0000-000000000000\",\n    \"customerName\": \"\",\n    \"branchId\": \"00000000-0000-0000-0000-000000000000\",\n    \"branchName\": \"\",\n    \"items\": []\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"]
+                                },
+                                "description": "Tenta criar uma venda com campos obrigatórios ausentes ou inválidos: lista de itens vazia, campos em branco.\n\nDeve retornar **400 Bad Request**."
+                            },
+                            "response": [
+                                {
+                                    "name": "400 Bad Request — Campos obrigatórios ausentes",
+                                    "originalRequest": {
+                                        "method": "POST",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"customerName\": \"\",\n    \"branchName\": \"\",\n    \"items\": []\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales", "host": ["{{base_url}}"], "path": ["api", "sales"]}
+                                    },
+                                    "status": "Bad Request",
+                                    "code": 400,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    {\n      \"property\": \"CustomerName\",\n      \"error\": \"'Customer Name' must not be empty.\"\n    },\n    {\n      \"property\": \"BranchName\",\n      \"error\": \"'Branch Name' must not be empty.\"\n    },\n    {\n      \"property\": \"Items\",\n      \"error\": \"Sale must have at least one item.\"\n    }\n  ]\n}"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "🔍 Consultar Vendas",
+                    "description": "Endpoints de consulta de vendas por ID e listagem paginada.",
+                    "item": [
+                        {
+                            "name": "Buscar Venda por ID ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                            "",
+                                            "pm.test('Dados completos da venda retornados', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    // Resposta single-wrapped: { success, data: { id, saleNumber, items, ... } }",
+                                            "    pm.expect(json.success).to.be.true;",
+                                            "    pm.expect(json.data.id).to.equal(pm.environment.get('sale_id'));",
+                                            "    pm.expect(json.data.isCancelled).to.be.false;",
+                                            "    pm.expect(json.data.items).to.be.an('array').and.not.empty;",
+                                            "});",
+                                            "",
+                                            "pm.test('Campos obrigatórios presentes', () => {",
+                                            "    const sale = pm.response.json().data;",
+                                            "    ['id', 'saleNumber', 'saleDate', 'customerName', 'branchName',",
+                                            "     'totalAmount', 'isCancelled', 'createdAt', 'items'].forEach(field => {",
+                                            "        pm.expect(sale).to.have.property(field);",
+                                            "    });",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id}}"]
+                                },
+                                "description": "Busca todos os detalhes de uma venda pelo ID.\n\nUsa `{{sale_id}}` capturado por **Criar Venda — Sem Desconto**.\n\n**Estrutura da resposta:** Os dados estão diretamente em `data` (single-wrapped)."
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK — Venda encontrada",
+                                    "originalRequest": {
+                                        "method": "GET",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales/a8b3c2d1-e4f5-6789-abcd-ef0123456789", "host": ["{{base_url}}"], "path": ["api", "sales", "a8b3c2d1-e4f5-6789-abcd-ef0123456789"]}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"a8b3c2d1-e4f5-6789-abcd-ef0123456789\",\n    \"saleNumber\": 1,\n    \"saleDate\": \"2026-04-20T10:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Cliente Exemplo Ltda\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial São Paulo\",\n    \"totalAmount\": 200.00,\n    \"isCancelled\": false,\n    \"createdAt\": \"2026-04-20T10:00:01.123Z\",\n    \"updatedAt\": null,\n    \"items\": [\n      {\n        \"id\": \"b9c4d3e2-f5a6-7890-bcde-f01234567890\",\n        \"productId\": \"33333333-3333-3333-3333-333333333333\",\n        \"productName\": \"Produto Alpha\",\n        \"quantity\": 2,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.00,\n        \"totalAmount\": 200.00,\n        \"isCancelled\": false\n      }\n    ]\n  }\n}"
+                                },
+                                {
+                                    "name": "404 Not Found — Venda não encontrada",
+                                    "originalRequest": {
+                                        "method": "GET",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099", "host": ["{{base_url}}"], "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]}
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Resource not found\",\n  \"errors\": []\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Buscar Venda — Não encontrada ❌ (404)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 404 - Not Found', () => pm.response.to.have.status(404));",
+                                            "pm.test('Mensagem de não encontrado', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    pm.expect(json.success).to.be.false;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]
+                                },
+                                "description": "Tenta buscar uma venda com ID inexistente. Deve retornar **404 Not Found**."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Listar Vendas (paginado) ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                            "",
+                                            "pm.test('Resposta paginada com estrutura correta', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    // Resposta single-wrapped: { success, data: { data: [...], totalItems, currentPage, totalPages } }",
+                                            "    pm.expect(json.success).to.be.true;",
+                                            "    pm.expect(json.data).to.have.property('data');",
+                                            "    pm.expect(json.data.data).to.be.an('array');",
+                                            "    pm.expect(json.data).to.have.property('totalItems');",
+                                            "    pm.expect(json.data).to.have.property('currentPage');",
+                                            "    pm.expect(json.data).to.have.property('totalPages');",
+                                            "});",
+                                            "",
+                                            "pm.test('Página atual corresponde ao parâmetro _page', () => {",
+                                            "    pm.expect(pm.response.json().data.currentPage).to.equal(1);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales?_page=1&_size=10",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales"],
+                                    "query": [
+                                        {"key": "_page", "value": "1", "description": "Número da página (começa em 1)"},
+                                        {"key": "_size", "value": "10", "description": "Número de registros por página"}
+                                    ]
+                                },
+                                "description": "Retorna uma lista paginada de todas as vendas.\n\n**Parâmetros de paginação:**\n- `_page`: número da página (padrão: 1)\n- `_size`: itens por página (padrão: 10)\n\n**Estrutura da resposta:**\n```json\n{\n  \"data\": {\n    \"data\": [ ...lista de vendas... ],\n    \"totalItems\": 3,\n    \"currentPage\": 1,\n    \"totalPages\": 1\n  }\n}\n```\n\n> Cada item da lista é um resumo da venda (sem detalhes dos itens)."
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK — Lista paginada de vendas",
+                                    "originalRequest": {
+                                        "method": "GET",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales?_page=1&_size=10", "host": ["{{base_url}}"], "path": ["api", "sales"], "query": [{"key": "_page", "value": "1"}, {"key": "_size", "value": "10"}]}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"data\": [\n      {\n        \"id\": \"a8b3c2d1-e4f5-6789-abcd-ef0123456789\",\n        \"saleNumber\": 1,\n        \"saleDate\": \"2026-04-20T10:00:00Z\",\n        \"customerName\": \"Cliente Exemplo Ltda\",\n        \"branchName\": \"Filial São Paulo\",\n        \"totalAmount\": 200.00,\n        \"isCancelled\": false,\n        \"createdAt\": \"2026-04-20T10:00:01.123Z\"\n      },\n      {\n        \"id\": \"c1d4e5f6-a7b8-9012-cdef-012345678901\",\n        \"saleNumber\": 2,\n        \"saleDate\": \"2026-04-20T11:00:00Z\",\n        \"customerName\": \"Distribuidora Beta S.A.\",\n        \"branchName\": \"Filial Rio de Janeiro\",\n        \"totalAmount\": 450.00,\n        \"isCancelled\": false,\n        \"createdAt\": \"2026-04-20T11:00:01.456Z\"\n      },\n      {\n        \"id\": \"e3f6a7b8-c9d0-1234-efab-234567890123\",\n        \"saleNumber\": 3,\n        \"saleDate\": \"2026-04-20T12:00:00Z\",\n        \"customerName\": \"Atacado Gamma Ltda\",\n        \"branchName\": \"Filial Campinas\",\n        \"totalAmount\": 800.00,\n        \"isCancelled\": false,\n        \"createdAt\": \"2026-04-20T12:00:01.789Z\"\n      }\n    ],\n    \"totalItems\": 3,\n    \"currentPage\": 1,\n    \"totalPages\": 1\n  }\n}"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "✏️ Atualizar Venda",
+                    "description": "Endpoints de atualização de vendas. Uma venda cancelada não pode ser atualizada.",
+                    "item": [
+                        {
+                            "name": "Atualizar Venda ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                            "",
+                                            "pm.test('Venda atualizada com novos dados', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    // Resposta single-wrapped: { success, data: { id, updatedAt, ... } }",
+                                            "    pm.expect(json.success).to.be.true;",
+                                            "    pm.expect(json.data.id).to.equal(pm.environment.get('sale_id'));",
+                                            "    pm.expect(json.data.updatedAt).to.not.be.null;",
+                                            "    pm.expect(json.data.customerName).to.include('(atualizado)');",
+                                            "});",
+                                            "",
+                                            "pm.test('Regra de desconto na atualização: qty=8 → 10%', () => {",
+                                            "    const items = pm.response.json().data.items;",
+                                            "    pm.expect(items[0].discount).to.equal(0.10);",
+                                            "    pm.expect(items[0].quantity).to.equal(8);",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "PUT",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T15:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Cliente Exemplo Ltda (atualizado)\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial São Paulo\",\n    \"items\": [\n        {\n            \"productId\": \"{{product_id_1}}\",\n            \"productName\": \"Produto Alpha\",\n            \"quantity\": 8,\n            \"unitPrice\": 100.00\n        },\n        {\n            \"productId\": \"{{product_id_2}}\",\n            \"productName\": \"Produto Beta\",\n            \"quantity\": 2,\n            \"unitPrice\": 50.00\n        }\n    ]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id}}"]
+                                },
+                                "description": "Atualiza o cabeçalho e os itens de uma venda existente.\n\n**Regras:**\n- Os itens anteriores são **substituídos** pelos novos\n- Os descontos são **recalculados** com base nas novas quantidades\n- Venda cancelada não pode ser atualizada (400)\n\n**Cálculo esperado:**\n- Produto Alpha: qty=8, unitPrice=100 → discount=10% → total=720,00\n- Produto Beta: qty=2, unitPrice=50 → sem desconto → total=100,00\n- **Sale total: 820,00**"
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK — Venda atualizada",
+                                    "originalRequest": {
+                                        "method": "PUT",
+                                        "header": [],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n    \"saleDate\": \"2026-04-20T15:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Cliente Exemplo Ltda (atualizado)\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial São Paulo\",\n    \"items\": [{\"productId\": \"33333333-3333-3333-3333-333333333333\", \"productName\": \"Produto Alpha\", \"quantity\": 8, \"unitPrice\": 100.00}, {\"productId\": \"44444444-4444-4444-4444-444444444444\", \"productName\": \"Produto Beta\", \"quantity\": 2, \"unitPrice\": 50.00}]\n}",
+                                            "options": {"raw": {"language": "json"}}
+                                        },
+                                        "url": {"raw": "{{base_url}}/api/sales/a8b3c2d1-e4f5-6789-abcd-ef0123456789", "host": ["{{base_url}}"], "path": ["api", "sales", "a8b3c2d1-e4f5-6789-abcd-ef0123456789"]}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"a8b3c2d1-e4f5-6789-abcd-ef0123456789\",\n    \"saleNumber\": 1,\n    \"saleDate\": \"2026-04-20T15:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Cliente Exemplo Ltda (atualizado)\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial São Paulo\",\n    \"totalAmount\": 820.00,\n    \"isCancelled\": false,\n    \"createdAt\": \"2026-04-20T10:00:01.123Z\",\n    \"updatedAt\": \"2026-04-20T15:00:02.456Z\",\n    \"items\": [\n      {\n        \"id\": \"f5b8c9d0-e1f2-3456-abcd-567890123456\",\n        \"productId\": \"33333333-3333-3333-3333-333333333333\",\n        \"productName\": \"Produto Alpha\",\n        \"quantity\": 8,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.10,\n        \"totalAmount\": 720.00,\n        \"isCancelled\": false\n      },\n      {\n        \"id\": \"a6c9d0e1-f2a3-4567-bcde-678901234567\",\n        \"productId\": \"44444444-4444-4444-4444-444444444444\",\n        \"productName\": \"Produto Beta\",\n        \"quantity\": 2,\n        \"unitPrice\": 50.00,\n        \"discount\": 0.00,\n        \"totalAmount\": 100.00,\n        \"isCancelled\": false\n      }\n    ]\n  }\n}"
+                                },
+                                {
+                                    "name": "404 Not Found — Venda não encontrada",
+                                    "originalRequest": {
+                                        "method": "PUT",
+                                        "header": [],
+                                        "body": {"mode": "raw", "raw": "{}", "options": {"raw": {"language": "json"}}},
+                                        "url": {"raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099", "host": ["{{base_url}}"], "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]}
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Resource not found\",\n  \"errors\": []\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Atualizar Venda — Não encontrada ❌ (404)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 404 - Not Found', () => pm.response.to.have.status(404));",
+                                            "pm.test('Venda não existe', () => {",
+                                            "    pm.expect(pm.response.json().success).to.be.false;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "PUT",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T15:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Cliente Fantasma\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial Inexistente\",\n    \"items\": [{\"productId\": \"{{product_id_1}}\", \"productName\": \"Produto\", \"quantity\": 2, \"unitPrice\": 50.00}]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]
+                                },
+                                "description": "Tenta atualizar uma venda com ID inexistente. Deve retornar **404 Not Found**."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Atualizar Venda Cancelada ❌ (400)",
+                            "event": [
+                                {
+                                    "listen": "prerequest",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "// Verifica se sale_id_to_cancel está preenchido",
+                                            "if (!pm.environment.get('sale_id_to_cancel')) {",
+                                            "    console.warn('⚠️  sale_id_to_cancel não está definido. Execute \"Cancelar Venda\" antes deste teste.');",
+                                            "}"
+                                        ]
+                                    }
+                                },
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 400 - Bad Request (venda cancelada)', () => pm.response.to.have.status(400));",
+                                            "pm.test('Erro: venda está cancelada', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    pm.expect(json.success).to.be.false;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "PUT",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"saleDate\": \"2026-04-20T16:00:00Z\",\n    \"customerId\": \"{{customer_id}}\",\n    \"customerName\": \"Tentativa de Atualização\",\n    \"branchId\": \"{{branch_id}}\",\n    \"branchName\": \"Filial\",\n    \"items\": [{\"productId\": \"{{product_id_1}}\", \"productName\": \"Produto\", \"quantity\": 3, \"unitPrice\": 50.00}]\n}",
+                                    "options": {"raw": {"language": "json"}}
+                                },
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id_to_cancel}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id_to_cancel}}"]
+                                },
+                                "description": "Tenta atualizar a venda que foi cancelada (referenciada por `{{sale_id_to_cancel}}`).\n\n**Pré-requisito:** Execute **Cancelar Venda** antes deste teste.\n\nDeve retornar **400 Bad Request** pois uma venda cancelada não pode ser modificada."
+                            },
+                            "response": [
+                                {
+                                    "name": "400 Bad Request — Venda já cancelada",
+                                    "originalRequest": {
+                                        "method": "PUT",
+                                        "header": [],
+                                        "body": {"mode": "raw", "raw": "{\n    \"saleDate\": \"2026-04-20T16:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Tentativa\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial\",\n    \"items\": [{\"productId\": \"33333333-3333-3333-3333-333333333333\", \"productName\": \"Produto\", \"quantity\": 3, \"unitPrice\": 50.00}]\n}", "options": {"raw": {"language": "json"}}},
+                                        "url": {"raw": "{{base_url}}/api/sales/c1d4e5f6-a7b8-9012-cdef-012345678901", "host": ["{{base_url}}"], "path": ["api", "sales", "c1d4e5f6-a7b8-9012-cdef-012345678901"]}
+                                    },
+                                    "status": "Bad Request",
+                                    "code": 400,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Sale 'c1d4e5f6-a7b8-9012-cdef-012345678901' is cancelled and cannot be modified.\",\n  \"errors\": []\n}"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "❌ Cancelar Venda",
+                    "description": "Endpoints de cancelamento (soft-delete) de vendas.\n\nO cancelamento é **lógico**: o registro permanece no banco com `isCancelled = true`. A venda ainda pode ser consultada mas não pode ser atualizada.",
+                    "item": [
+                        {
+                            "name": "Cancelar Venda ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 200 - OK', () => pm.response.to.have.status(200));",
+                                            "",
+                                            "pm.test('Venda cancelada com sucesso', () => {",
+                                            "    const json = pm.response.json();",
+                                            "    pm.expect(json.success).to.be.true;",
+                                            "    // Resposta dupla-encapsulada: { data: { success, message } }",
+                                            "    pm.expect(json.data.message).to.include('cancelled');",
+                                            "});",
+                                            "",
+                                            "pm.test('Confirmação via GET: isCancelled = true', async () => {",
+                                            "    // Nota: use a requisição 'Buscar Venda por ID' com {{sale_id_to_cancel}} para confirmar",
+                                            "    console.log('✅ Venda ' + pm.environment.get('sale_id_to_cancel') + ' cancelada. Verifique via GET /api/sales/{id}.');",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "DELETE",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id_to_cancel}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id_to_cancel}}"]
+                                },
+                                "description": "Cancela (soft-delete) a venda referenciada por `{{sale_id_to_cancel}}`.\n\n**O que acontece:**\n1. O campo `isCancelled` é definido como `true`\n2. O campo `updatedAt` é atualizado\n3. O registro **não é removido** do banco — ainda aparece nas consultas\n4. A venda **não pode mais ser atualizada** (PUT retorna 400)\n\n**Resposta:** Mensagem de confirmação sem campo `data` com dados da venda."
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK — Venda cancelada",
+                                    "originalRequest": {
+                                        "method": "DELETE",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales/c1d4e5f6-a7b8-9012-cdef-012345678901", "host": ["{{base_url}}"], "path": ["api", "sales", "c1d4e5f6-a7b8-9012-cdef-012345678901"]}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"success\": true,\n    \"message\": \"Sale cancelled successfully\",\n    \"errors\": []\n  }\n}"
+                                },
+                                {
+                                    "name": "404 Not Found — Venda não encontrada",
+                                    "originalRequest": {
+                                        "method": "DELETE",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099", "host": ["{{base_url}}"], "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]}
+                                    },
+                                    "status": "Not Found",
+                                    "code": 404,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": false,\n  \"message\": \"Resource not found\",\n  \"errors\": []\n}"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Cancelar Venda — Não encontrada ❌ (404)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 404 - Not Found', () => pm.response.to.have.status(404));",
+                                            "pm.test('Venda não existe', () => {",
+                                            "    pm.expect(pm.response.json().success).to.be.false;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "DELETE",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/00000000-0000-0000-0000-000000000099",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "00000000-0000-0000-0000-000000000099"]
+                                },
+                                "description": "Tenta cancelar uma venda com ID inexistente. Deve retornar **404 Not Found**."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Cancelar Venda Já Cancelada ⚠️ (200 ou 400)",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Retorna 200 (idempotente) ou 400 (já cancelada)', () => {",
+                                            "    pm.expect([200, 400]).to.include(pm.response.code);",
+                                            "});",
+                                            "",
+                                            "if (pm.response.code === 200) {",
+                                            "    pm.test('Cancelamento idempotente aceito', () => {",
+                                            "        pm.expect(pm.response.json().success).to.be.true;",
+                                            "    });",
+                                            "} else {",
+                                            "    pm.test('Erro: venda já estava cancelada', () => {",
+                                            "        pm.expect(pm.response.json().success).to.be.false;",
+                                            "    });",
+                                            "}"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "DELETE",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id_to_cancel}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id_to_cancel}}"]
+                                },
+                                "description": "Tenta cancelar novamente uma venda que já foi cancelada.\n\n**Pré-requisito:** Execute **Cancelar Venda** primeiro.\n\nO comportamento esperado pode variar:\n- **200 OK** → implementação idempotente (cancelar já cancelada é aceito)\n- **400 Bad Request** → implementação estrita (não permite recancelar)\n\nO script de teste aceita ambos os cenários."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Verificar Venda Cancelada via GET ✅",
+                            "event": [
+                                {
+                                    "listen": "test",
+                                    "script": {
+                                        "type": "text/javascript",
+                                        "exec": [
+                                            "pm.test('Status 200 - OK (venda ainda existe)', () => pm.response.to.have.status(200));",
+                                            "",
+                                            "pm.test('Soft-delete: isCancelled = true', () => {",
+                                            "    const sale = pm.response.json().data;",
+                                            "    pm.expect(sale.isCancelled).to.be.true;",
+                                            "    pm.expect(sale.updatedAt).to.not.be.null;",
+                                            "    console.log('✅ Venda cancelada em: ' + sale.updatedAt);",
+                                            "});",
+                                            "",
+                                            "pm.test('Registro preservado no banco de dados', () => {",
+                                            "    const sale = pm.response.json().data;",
+                                            "    pm.expect(sale.id).to.equal(pm.environment.get('sale_id_to_cancel'));",
+                                            "    pm.expect(sale.customerName).to.not.be.empty;",
+                                            "});"
+                                        ]
+                                    }
+                                }
+                            ],
+                            "request": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "{{base_url}}/api/sales/{{sale_id_to_cancel}}",
+                                    "host": ["{{base_url}}"],
+                                    "path": ["api", "sales", "{{sale_id_to_cancel}}"]
+                                },
+                                "description": "Confirma que após o cancelamento:\n- A venda **ainda pode ser consultada** (soft-delete)\n- O campo `isCancelled` é `true`\n- O campo `updatedAt` foi preenchido\n\nExecute **após Cancelar Venda** para validar o comportamento de soft-delete."
+                            },
+                            "response": [
+                                {
+                                    "name": "200 OK — Venda cancelada ainda visível",
+                                    "originalRequest": {
+                                        "method": "GET",
+                                        "header": [],
+                                        "url": {"raw": "{{base_url}}/api/sales/c1d4e5f6-a7b8-9012-cdef-012345678901", "host": ["{{base_url}}"], "path": ["api", "sales", "c1d4e5f6-a7b8-9012-cdef-012345678901"]}
+                                    },
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json; charset=utf-8"}],
+                                    "cookie": [],
+                                    "body": "{\n  \"success\": true,\n  \"message\": \"\",\n  \"errors\": [],\n  \"data\": {\n    \"id\": \"c1d4e5f6-a7b8-9012-cdef-012345678901\",\n    \"saleNumber\": 2,\n    \"saleDate\": \"2026-04-20T11:00:00Z\",\n    \"customerId\": \"11111111-1111-1111-1111-111111111111\",\n    \"customerName\": \"Distribuidora Beta S.A.\",\n    \"branchId\": \"22222222-2222-2222-2222-222222222222\",\n    \"branchName\": \"Filial Rio de Janeiro\",\n    \"totalAmount\": 450.00,\n    \"isCancelled\": true,\n    \"createdAt\": \"2026-04-20T11:00:01.456Z\",\n    \"updatedAt\": \"2026-04-20T16:30:05.789Z\",\n    \"items\": [\n      {\n        \"id\": \"d2e5f6a7-b8c9-0123-defa-123456789012\",\n        \"productId\": \"33333333-3333-3333-3333-333333333333\",\n        \"productName\": \"Produto Alpha\",\n        \"quantity\": 5,\n        \"unitPrice\": 100.00,\n        \"discount\": 0.10,\n        \"totalAmount\": 450.00,\n        \"isCancelled\": false\n      }\n    ]\n  }\n}"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string",
+            "description": "URL base da API. Sobreposta pelo ambiente se configurado."
+        }
+    ]
+}
