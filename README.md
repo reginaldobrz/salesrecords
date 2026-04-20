@@ -502,6 +502,189 @@ No `data` field is returned.
 
 ---
 
+## API Reference — Authentication
+
+**Base URL:** `http://localhost:8080`
+
+Authentication is done via **JWT Bearer Token**. After a successful login, include the token in the `Authorization` header of every protected request:
+
+```
+Authorization: Bearer <token>
+```
+
+---
+
+### POST /api/auth
+**Authenticates a user and returns a JWT Bearer Token.**
+
+> Does **not** require authentication.
+
+#### Request body
+
+```json
+{
+  "email": "admin@salesrecords.com",
+  "password": "Test@123456"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `email` | `string` | ✅ | Registered user e-mail |
+| `password` | `string` | ✅ | User password |
+
+#### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "User authenticated successfully",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "email": "admin@salesrecords.com",
+    "name": "Admin User",
+    "role": "Admin"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `token` | `string` | JWT Bearer token — use in `Authorization: Bearer <token>` |
+| `email` | `string` | Authenticated user's e-mail |
+| `name` | `string` | Authenticated user's username |
+| `role` | `string` | User role: `Customer`, `Manager`, or `Admin` |
+
+#### Error responses
+
+| Status | When |
+|---|---|
+| `400 Bad Request` | Validation error (invalid e-mail format, missing fields) |
+| `401 Unauthorized` | E-mail not found or password does not match |
+
+---
+
+## API Reference — Users
+
+> Users endpoints do **not** require authentication.
+
+---
+
+### POST /api/users
+**Creates a new user.**
+
+#### Request body
+
+```json
+{
+  "username": "adminuser",
+  "password": "Test@123456",
+  "phone": "(11) 99999-9999",
+  "email": "admin@salesrecords.com",
+  "status": 1,
+  "role": 3
+}
+```
+
+| Field | Type | Required | Rules | Description |
+|---|---|---|---|---|
+| `username` | `string` | ✅ | 3–50 chars | Display name |
+| `password` | `string` | ✅ | ≥ 8 chars, uppercase, lowercase, digit, special char | User password (stored hashed) |
+| `phone` | `string` | ✅ | Valid phone format | Contact phone number |
+| `email` | `string` | ✅ | Valid e-mail | Must be unique |
+| `status` | `int` | ✅ | `1`=Active, `2`=Inactive, `3`=Suspended | User account status |
+| `role` | `int` | ✅ | `1`=Customer, `2`=Manager, `3`=Admin | User permission level |
+
+#### Response `201 Created`
+
+```json
+{
+  "success": true,
+  "message": "User created successfully",
+  "data": {
+    "id": "c0d5e4f3-a6b7-8901-cdef-012345678901",
+    "name": "adminuser",
+    "email": "admin@salesrecords.com",
+    "phone": "(11) 99999-9999",
+    "role": 3,
+    "status": 1
+  }
+}
+```
+
+#### Error responses
+
+| Status | When |
+|---|---|
+| `400 Bad Request` | Validation error (password too weak, invalid e-mail, etc.) |
+| `400 Bad Request` | E-mail is already registered |
+
+---
+
+### GET /api/users/{id}
+**Retrieves a user by their unique identifier.**
+
+> Requires Bearer token authentication.
+
+#### URL parameter
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `Guid` | Unique identifier of the user |
+
+#### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "User retrieved successfully",
+  "data": {
+    "id": "c0d5e4f3-a6b7-8901-cdef-012345678901",
+    "name": "adminuser",
+    "email": "admin@salesrecords.com",
+    "phone": "(11) 99999-9999",
+    "role": 3,
+    "status": 1
+  }
+}
+```
+
+#### Error responses
+
+| Status | When |
+|---|---|
+| `404 Not Found` | No user found for the given `id` |
+
+---
+
+### DELETE /api/users/{id}
+**Permanently deletes a user (hard delete).**
+
+> Requires Bearer token authentication.
+
+#### URL parameter
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `Guid` | Unique identifier of the user to delete |
+
+#### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "User deleted successfully"
+}
+```
+
+#### Error responses
+
+| Status | When |
+|---|---|
+| `404 Not Found` | No user found for the given `id` |
+
+---
+
 ## Error Response Format
 
 All `4xx` errors return a consistent body:
@@ -534,6 +717,8 @@ All `4xx` errors return a consistent body:
 
 ## Test Coverage
 
+### Unit Tests
+
 The unit test suite (`tests/Ambev.DeveloperEvaluation.Unit`) covers all Sales Domain and Application classes with **≥ 95% line coverage** (101 tests, 0 failures).
 
 | Layer | Classes | Min Coverage |
@@ -544,7 +729,7 @@ The unit test suite (`tests/Ambev.DeveloperEvaluation.Unit`) covers all Sales Do
 | Application Events | `SaleCreatedEvent`, `SaleCancelledEvent`, `SaleModifiedEvent`, `ItemCancelledEvent` | 100% |
 | AutoMapper Profiles | All 4 profiles | 100% |
 
-Run tests:
+Run unit tests:
 ```bash
 cd template/backend
 dotnet test tests/Ambev.DeveloperEvaluation.Unit/Ambev.DeveloperEvaluation.Unit.csproj
@@ -558,3 +743,58 @@ dotnet test tests/Ambev.DeveloperEvaluation.Unit/Ambev.DeveloperEvaluation.Unit.
   -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Ambev.DeveloperEvaluation.*]*" \
      DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[Ambev.DeveloperEvaluation.Unit]*"
 ```
+
+### Functional Tests
+
+The functional test suite (`tests/Ambev.DeveloperEvaluation.Functional`) runs the full HTTP pipeline end-to-end using `WebApplicationFactory` with an EF Core InMemory database. **28 / 28 tests passing.**
+
+| File | Tests | Scenarios covered |
+|---|---|---|
+| `CreateSaleTests.cs` | 8 | Success, discounts (0%/10%/20%), qty > 20, no auth, missing fields, duplicate items |
+| `GetSaleTests.cs` | 3 | Found, not found, invalid GUID |
+| `GetSalesTests.cs` | 4 | Paginated list, page/size params, empty result |
+| `UpdateSaleTests.cs` | 5 | Success, discount recalc, not found, cancelled sale, missing fields |
+| `DeleteSaleTests.cs` | 8 | Cancel, already cancelled, not found, verify soft-delete via GET |
+
+Run functional tests:
+```bash
+cd template/backend
+dotnet test tests/Ambev.DeveloperEvaluation.Functional/Ambev.DeveloperEvaluation.Functional.csproj
+```
+
+---
+
+## Postman Collection
+
+A ready-to-import Postman collection and environment are available under `template/backend/postman/`:
+
+| File | Description |
+|---|---|
+| `SalesRecords_API.postman_collection.json` | 24 requests covering all endpoints with success and failure flows |
+| `SalesRecords_Local.postman_environment.json` | Environment variables for local/Docker execution |
+
+### Features
+- **Auto-fill scripts:** Login captures `{{token}}`; Create User captures `{{user_id}}`; Create Sale captures `{{sale_id}}` and `{{sale_id_to_cancel}}`
+- **Bearer auth** inherited collection-wide (overridden to `noauth` on requests that test 401 scenarios)
+- **Test scripts** with assertions on every request (status code, response shape, business rule validation)
+- **Saved response examples** with accurate JSON for each endpoint
+
+### Import instructions
+
+1. Open Postman → **File → Import** → select `SalesRecords_API.postman_collection.json`
+2. **File → Import** → select `SalesRecords_Local.postman_environment.json`
+3. Select the **"SalesRecords — Local (Docker)"** environment in the top-right dropdown
+4. Execute in order: **Criar Usuário → Login → Criar Venda (Sem Desconto) → Criar Venda (Desconto 10%) → remaining endpoints**
+
+> Use `http://localhost:8080` (Docker) or `http://localhost:5119` (`dotnet run`). The `base_url` variable defaults to `http://localhost:8080`.
+
+---
+
+## Recent Fixes
+
+| Fix | Description |
+|---|---|
+| **GetUser AutoMapper** | `GetUserProfile` in the WebApi layer was missing `CreateMap<GetUserResult, GetUserResponse>()`. `GET /api/users/{id}` returned 500. |
+| **Invalid credentials → 401** | `AuthenticateUserHandler` throws `UnauthorizedAccessException` on bad credentials. The `ValidationExceptionMiddleware` did not catch it, causing a 500. Added `UnauthorizedAccessException` handler returning `401 Unauthorized`. |
+| **SalesController double-wrapping** | Controllers calling `Ok(new ApiResponseWithData<T>{...})` invoked `BaseController.Ok<ApiResponseWithData<T>>()`, which wrapped the response a second time. Fixed by passing the mapped DTO directly to `Ok()`. |
+| **SaleRepository.UpdateAsync** | `PUT /api/sales/{id}` caused `DbUpdateConcurrencyException` because new `SaleItem` entities created by `ReplaceItems()` were marked `Modified` instead of `Added`. Fixed with explicit EF entity state management (detach tracked entities, then mark new items as `Added` and existing items as `Modified`). |
