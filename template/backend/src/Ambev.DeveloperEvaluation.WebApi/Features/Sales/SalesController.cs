@@ -11,12 +11,14 @@ using Ambev.DeveloperEvaluation.WebApi.Features.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSale;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSales;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.UpdateSale;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Ambev.DeveloperEvaluation.WebApi.Features.Sales;
 
 /// <summary>
 /// Manages sale records: creation, retrieval, update, and cancellation.
 /// </summary>
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class SalesController : BaseController
